@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌍 Mapa de Conexiones de Red</title>
+    
+    <!-- Favicon para evitar error 404 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border-bottom: 3px solid #ffd700;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            flex: 1;
+            min-width: 200px;
+            text-align: center;
+            border: 3px solid #ffd700;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px) scale(1.05);
+            border-color: #ffed4e;
+            box-shadow: 0 8px 30px rgba(255, 215, 0, 0.5);
+        }
+
+        .stat-card h3 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            font-weight: bold;
+        }
+
+        .stat-card p {
+            font-size: 1.2em;
+            opacity: 1;
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        #map {
+            height: 700px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border: 4px solid #ffd700;
+            width: 100%;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.5em;
+        }
+
+        .spinner {
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            color: #000;
+            border: 3px solid #ffd700;
+            padding: 15px 40px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #ffed4e 0%, #ffd700 100%);
+            transform: scale(1.1);
+            box-shadow: 0 8px 30px rgba(255, 215, 0, 0.6);
+        }
+
+        /* Layout de dos columnas */
+        .content-grid {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            align-items: stretch;
+        }
+
+        .netstat-column {
+            flex: 0 0 400px;
+            min-width: 400px;
+        }
+
+        .map-column {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .map-container {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Botón flotante para centrar ubicación */
+        .location-btn {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            z-index: 9999 !important;
+            background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+            color: #000;
+            border: 4px solid #fff;
+            padding: 0;
+            font-size: 1.8em;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(0, 255, 0, 0.7), 0 0 20px rgba(0, 255, 0, 0.4);
+            width: 70px;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .location-btn:hover {
+            background: linear-gradient(135deg, #00cc00 0%, #00ff00 100%);
+            transform: scale(1.2) rotate(15deg);
+            box-shadow: 0 12px 40px rgba(0, 255, 0, 0.9), 0 0 30px rgba(0, 255, 0, 0.6);
+        }
+
+        .location-btn:active {
+            transform: scale(0.95);
+        }
+
+        .netstat-output {
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            height: 700px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            border: 3px solid rgba(0, 255, 0, 0.5);
+            font-family: 'Courier New', monospace;
+        }
+
+        .netstat-output h2 {
+            color: #00ff00;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .netstat-output pre {
+            color: #00ff00;
+            font-size: 0.9em;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 0;
+        }
+
+        .connection-list {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            border: 3px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .connection-list h2 {
+            color: #ffd700;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .connection-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 18px;
+            margin-bottom: 12px;
+            border-radius: 10px;
+            border-left: 5px solid #ffd700;
+            transition: all 0.3s ease;
+        }
+
+        .connection-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-left-width: 8px;
+            transform: translateX(5px);
+        }
+
+        .connection-item strong {
+            color: #ffd700;
+        }
+
+        /* Custom popup styles */
+        .leaflet-popup-content-wrapper {
+            background: rgba(30, 30, 30, 0.95);
+            color: white;
+            border-radius: 10px;
+        }
+
+        .leaflet-popup-content {
+            margin: 15px;
+            font-size: 14px;
+        }
+
+        .leaflet-popup-tip {
+            background: rgba(30, 30, 30, 0.95);
+        }
+
+        .popup-title {
+            color: #ffd700;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #ffd700;
+            padding-bottom: 5px;
+        }
+
+        .popup-info {
+            line-height: 1.8;
+        }
+
+        .popup-info strong {
+            color: #4da6ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌍 Visualizador de Conexiones de Red</h1>
+        <p>Mapa interactivo de todas las conexiones activas en tu equipo</p>
+    </div>
+
+    <div class="container">
+        <!-- Estadísticas -->
+        <div class="stats">
+            <div class="stat-card">
+                <h3 id="total-connections">0</h3>
+                <p>Conexiones Activas</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="unique-countries">0</h3>
+                <p>Países Conectados</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="my-location">Cargando...</h3>
+                <p>Tu Ubicación</p>
+            </div>
+        </div>
+
+        <!-- Controles -->
+        <div class="controls">
+            <button class="btn" onclick="refreshConnections()">🔄 Actualizar Conexiones</button>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Analizando conexiones de red...</p>
+        </div>
+
+        <!-- Layout de dos columnas: Netstat (izquierda) + Mapa (derecha) -->
+        <div id="content-grid" class="content-grid" style="display: none;">
+            <!-- Columna izquierda: Output de Netstat -->
+            <div class="netstat-column">
+                <div id="netstat-output" class="netstat-output">
+                    <h2>� Salida de NETSTAT</h2>
+                    <pre id="netstat-content"></pre>
+                </div>
+            </div>
+
+            <!-- Columna derecha: Mapa -->
+            <div class="map-column">
+                <div class="map-container">
+                    <div id="map"></div>
+                    <button class="location-btn" onclick="centerMyLocation()" title="📍 Ir a mi ubicación">
+                        📍
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de conexiones (debajo de todo) -->
+        <div id="connection-list" class="connection-list" style="display: none;">
+            <h2>📋 Detalle de Conexiones</h2>
+            <div id="connections-content"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        let map;
+        let markersLayer;
+        let myLocationData = null; // Guardar ubicación actual
+
+        function initMap() {
+            console.log('🗺️ Inicializando mapa...');
+            
+            // Crear el mapa con configuración optimizada (SIN preferCanvas para mejor calidad)
+            map = L.map('map', {
+                center: [0, 0],
+                zoom: 2,
+                zoomControl: true
+            });
+
+            // Configuración de tiles con reintentos
+            const tileOptions = {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors',
+                errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+                keepBuffer: 4
+            };
+
+            // Usar servidor de tiles más confiable
+            const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', tileOptions);
+            
+            tileLayer.on('loading', function() {
+                console.log('⏳ Cargando tiles del mapa...');
+            });
+            
+            tileLayer.on('load', function() {
+                console.log('✅ Tiles cargadas correctamente');
+            });
+            
+            tileLayer.on('tileerror', function(error) {
+                console.error('❌ Error cargando tiles:', error);
+            });
+            
+            tileLayer.addTo(map);
+
+            // Capa para marcadores y líneas
+            markersLayer = L.layerGroup().addTo(map);
+            
+            // FORZAR invalidación del mapa después de un momento (fix para el bug de carga)
+            setTimeout(function() {
+                map.invalidateSize();
+                console.log('🔄 Mapa redimensionado');
+            }, 100);
+            
+            console.log('✅ Mapa inicializado correctamente');
+        }
+
+        function drawConnections(data) {
+            // Limpiar marcadores anteriores
+            markersLayer.clearLayers();
+
+            const myLocation = data.my_location;
+            const connections = data.connections;
+            
+            // Guardar ubicación para el botón de centrar
+            myLocationData = myLocation;
+
+            // Actualizar estadísticas
+            document.getElementById('total-connections').textContent = data.total_connections;
+            document.getElementById('my-location').textContent = `${myLocation.city}, ${myLocation.country}`;
+            
+            // Calcular países únicos
+            const countries = new Set(connections.map(c => c.location.country));
+            document.getElementById('unique-countries').textContent = countries.size;
+
+            // Marcador de mi ubicación (VERDE GRANDE y brillante)
+            const myMarker = L.circleMarker([myLocation.lat, myLocation.lon], {
+                radius: 20,
+                fillColor: "#00ff00",
+                color: "#fff",
+                weight: 5,
+                opacity: 1,
+                fillOpacity: 0.9
+            }).addTo(markersLayer);
+            
+            // Agregar un anillo animado alrededor de mi ubicación
+            const myRing = L.circleMarker([myLocation.lat, myLocation.lon], {
+                radius: 30,
+                fillColor: "transparent",
+                color: "#00ff00",
+                weight: 3,
+                opacity: 0.6,
+                fillOpacity: 0
+            }).addTo(markersLayer);
+
+            myMarker.bindPopup(`
+                <div class="popup-title">🏠 Tu Ubicación</div>
+                <div class="popup-info">
+                    <strong>IP:</strong> ${myLocation.ip}<br>
+                    <strong>Ciudad:</strong> ${myLocation.city}<br>
+                    <strong>País:</strong> ${myLocation.country}<br>
+                    <strong>ISP:</strong> ${myLocation.isp}
+                </div>
+            `);
+
+            // Dibujar conexiones
+            let connectionsHTML = '';
+            connections.forEach((item, index) => {
+                const conn = item.connection;
+                const loc = item.location;
+
+                // Marcador de conexión remota (ROJO GRANDE)
+                const marker = L.circleMarker([loc.lat, loc.lon], {
+                    radius: 12,
+                    fillColor: "#ff0000",
+                    color: "#fff",
+                    weight: 3,
+                    opacity: 1,
+                    fillOpacity: 0.85
+                }).addTo(markersLayer);
+
+                marker.bindPopup(`
+                    <div class="popup-title">🌐 Conexión Remota</div>
+                    <div class="popup-info">
+                        <strong>IP:</strong> ${loc.ip}<br>
+                        <strong>Puerto:</strong> ${conn.foreign_port}<br>
+                        <strong>Ciudad:</strong> ${loc.city}<br>
+                        <strong>País:</strong> ${loc.country} ${loc.countryCode}<br>
+                        <strong>ISP:</strong> ${loc.isp}<br>
+                        <strong>Organización:</strong> ${loc.org}<br>
+                        <strong>Estado:</strong> ${conn.state}<br>
+                        <strong>Protocolo:</strong> ${conn.protocol}
+                    </div>
+                `);
+
+                // Línea conectando ambos puntos (MÁS GRUESA Y BRILLANTE)
+                const line = L.polyline([
+                    [myLocation.lat, myLocation.lon],
+                    [loc.lat, loc.lon]
+                ], {
+                    color: '#ffd700',
+                    weight: 3,
+                    opacity: 0.8,
+                    dashArray: '10, 15'
+                }).addTo(markersLayer);
+
+                line.bindPopup(`
+                    <div class="popup-title">🔗 Conexión</div>
+                    <div class="popup-info">
+                        <strong>Desde:</strong> ${myLocation.city}<br>
+                        <strong>Hacia:</strong> ${loc.city}, ${loc.country}<br>
+                        <strong>Estado:</strong> ${conn.state}
+                    </div>
+                `);
+
+                // Agregar a la lista
+                connectionsHTML += `
+                    <div class="connection-item">
+                        <strong>#${index + 1}</strong> - 
+                        ${conn.protocol} | 
+                        ${conn.foreign_address} | 
+                        <strong>${conn.state}</strong><br>
+                        📍 ${loc.city}, ${loc.country} (${loc.countryCode}) | 
+                        🏢 ${loc.isp}
+                    </div>
+                `;
+            });
+
+            document.getElementById('connections-content').innerHTML = connectionsHTML;
+
+            // Ajustar vista del mapa
+            if (connections.length > 0) {
+                const bounds = L.latLngBounds([myLocation.lat, myLocation.lon]);
+                connections.forEach(item => {
+                    bounds.extend([item.location.lat, item.location.lon]);
+                });
+                map.fitBounds(bounds, { padding: [50, 50] });
+            } else {
+                map.setView([myLocation.lat, myLocation.lon], 4);
+            }
+        }
+
+        async function refreshConnections() {
+            // Mostrar loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('content-grid').style.display = 'none';
+            document.getElementById('connection-list').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/connections');
+                const data = await response.json();
+
+                // Ocultar loading y mostrar contenido
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content-grid').style.display = 'flex';
+                document.getElementById('connection-list').style.display = 'block';
+
+                // Dibujar conexiones
+                drawConnections(data);
+                
+                // Mostrar output de netstat
+                displayNetstatOutput(data);
+                
+                // FORZAR redimensionamiento del mapa (fix para el bug)
+                setTimeout(function() {
+                    map.invalidateSize();
+                    console.log('🔄 Mapa actualizado después de cargar datos');
+                }, 200);
+                
+            } catch (error) {
+                console.error('Error al obtener conexiones:', error);
+                document.getElementById('loading').innerHTML = '<p>❌ Error al cargar las conexiones</p>';
+            }
+        }
+
+        function displayNetstatOutput(data) {
+            const netstatContent = document.getElementById('netstat-content');
+            let output = 'NETSTAT - Conexiones Activas\n';
+            output += '='.repeat(80) + '\n\n';
+            output += 'Protocolo  Dirección local         Dirección remota              Estado\n';
+            output += '-'.repeat(80) + '\n';
+            
+            data.connections.forEach(item => {
+                const conn = item.connection;
+                const loc = item.location;
+                
+                const protocol = conn.protocol.padEnd(10);
+                const localAddr = conn.local_address.padEnd(23);
+                const foreignAddr = `${conn.foreign_address} (${loc.city}, ${loc.country})`.padEnd(30);
+                const state = conn.state;
+                
+                output += `${protocol} ${localAddr} ${foreignAddr} ${state}\n`;
+            });
+            
+            output += '\n' + '='.repeat(80) + '\n';
+            output += `Total de conexiones: ${data.total_connections}\n`;
+            output += `Países únicos: ${new Set(data.connections.map(c => c.location.country)).size}\n`;
+            output += `Tu ubicación: ${data.my_location.city}, ${data.my_location.country}\n`;
+            
+            netstatContent.textContent = output;
+        }
+
+        function centerMyLocation() {
+            if (myLocationData && map) {
+                // Centrar y hacer zoom a mi ubicación
+                map.flyTo([myLocationData.lat, myLocationData.lon], 8, {
+                    duration: 1.5,
+                    easeLinearity: 0.5
+                });
+                
+                console.log('📍 Centrando en tu ubicación:', myLocationData.city);
+                
+                // Efecto visual: hacer pulsar el marcador
+                setTimeout(() => {
+                    const myMarkers = markersLayer.getLayers();
+                    if (myMarkers.length > 0) {
+                        myMarkers[0].openPopup();
+                    }
+                }, 1600);
+            } else {
+                console.warn('⚠️ No se ha cargado tu ubicación aún');
+            }
+        }
+
+        // Inicializar cuando cargue la página
+        window.onload = function() {
+            initMap();
+            refreshConnections();
+            
+            // FORZAR redimensionamiento del mapa cuando la ventana cambie de tamaño
+            window.addEventListener('resize', function() {
+                if (map) {
+                    map.invalidateSize();
+                }
+            });
+        };
+    </script>
+</body>
+</html>
