@@ -98,6 +98,7 @@ Reinstala Python marcando la opción "Add Python to PATH"
 ## 📝 Autor
 
 Proyecto creado para visualizar conexiones de red con netstat.
+**BY JHOEL TITIRICO CHARCA**
 
 ## 📄 Licencia
 
